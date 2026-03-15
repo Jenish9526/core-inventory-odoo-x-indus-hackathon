@@ -7,17 +7,17 @@ import { useTheme } from '../../context/ThemeContext';
 const NAV = [
   { group: 'MAIN' },
   { to: '/',               label: 'Dashboard',       exact: true },
-  { to: '/products',       label: 'Products'         },
-  { to: '/purchase-orders',label: 'Purchase Orders'  },
+  { to: '/products',       label: 'Products',        roles: ['Warehouse Supervisor','Inventory Coordinator','Stock Controller'] },
+  { to: '/purchase-orders',label: 'Purchase Orders', roles: ['Warehouse Supervisor','Inventory Coordinator'] },
   { group: 'OPERATIONS' },
-  { to: '/receipts',       label: 'Receipts',    sub: 'Incoming' },
-  { to: '/deliveries',     label: 'Deliveries',  sub: 'Outgoing' },
-  { to: '/transfers',      label: 'Transfers',   sub: 'Internal' },
-  { to: '/adjustments',    label: 'Adjustments'  },
+  { to: '/receipts',       label: 'Receipts',    sub: 'Incoming', roles: ['Warehouse Supervisor','Inventory Coordinator','Receiving Clerk','Production Store Keeper','Cold Chain Specialist'] },
+  { to: '/deliveries',     label: 'Deliveries',  sub: 'Outgoing', roles: ['Warehouse Supervisor','Inventory Coordinator','Dispatch Coordinator'] },
+  { to: '/transfers',      label: 'Transfers',   sub: 'Internal', roles: ['Warehouse Supervisor','Inventory Coordinator','Forklift Operator','Material Handler','Production Store Keeper','Cold Chain Specialist'] },
+  { to: '/adjustments',    label: 'Adjustments', roles: ['Warehouse Supervisor','Stock Controller','QC Analyst','Quality Inspector','Returns Processor','Cold Chain Specialist'] },
   { group: 'REPORTS' },
-  { to: '/history',        label: 'Stock Ledger' },
-  { to: '/performance',    label: 'Performance'  },
-  { to: '/warehouses',     label: 'Warehouses'   },
+  { to: '/history',        label: 'Stock Ledger', roles: ['Warehouse Supervisor','Inventory Coordinator','Stock Controller'] },
+  { to: '/performance',    label: 'Performance',  roles: ['Warehouse Supervisor','Inventory Coordinator','Stock Controller'] },
+  { to: '/warehouses',     label: 'Warehouses',   roles: ['Warehouse Supervisor'] },
   { group: 'TEAM' },
   { to: '/staff',          label: 'Staff',       managerOnly: true },
   { to: '/help',           label: 'Help'         },
@@ -39,7 +39,7 @@ function NotificationDrawer({ open, onClose }) {
   if (!open) return null;
   return (
     <div ref={ref} style={{
-      position: 'absolute', top: 48, right: 0, width: 320, maxHeight: 440,
+      position: 'absolute', top: 48, right: 0, width: 'min(320px, calc(100vw - 16px))', maxHeight: 440,
       background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)',
       borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)', zIndex: 200,
       display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'fadeUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -95,7 +95,7 @@ function ProfileDropdown({ open, onClose, user, isManager, onNavigate, onLogout,
 
   return (
     <div ref={ref} style={{
-      position: 'absolute', top: 48, right: 0, width: 240,
+      position: 'absolute', top: 48, right: 0, width: 'min(240px, calc(100vw - 16px))',
       background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)',
       borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)', zIndex: 200,
       overflow: 'hidden', animation: 'fadeUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -154,11 +154,21 @@ export default function AppLayout() {
   const { theme, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const jobRole = user?.jobRole || null;
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const avatarKey = `ci_avatar_${user?._id || user?.id}`;
   const [avatar, setAvatar] = useState(() => localStorage.getItem(avatarKey) || null);
+
+  React.useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   React.useEffect(() => {
     const handler = () => setAvatar(localStorage.getItem(avatarKey) || null);
     window.addEventListener('storage', handler);
@@ -166,19 +176,41 @@ export default function AppLayout() {
     return () => { window.removeEventListener('storage', handler); window.removeEventListener('focus', handler); };
   }, [avatarKey]);
 
-  const visibleNav = NAV.filter(item => !item.managerOnly || isManager);
+  // Close mobile sidebar on route change
+  React.useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+  const visibleNav = NAV.filter(item => {
+    if (item.managerOnly) return isManager;
+    if (isManager) return true; // manager sees everything
+    if (!item.roles) return true; // no restriction (Dashboard, Help, Feedback, Settings)
+    if (!jobRole) return true; // staff with no role assigned sees everything
+    return item.roles.includes(jobRole);
+  });
+
+  const sidebarVisible = isMobile ? mobileOpen : !collapsed;
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg-base)', overflow: 'hidden' }}>
 
+      {/* ── Mobile overlay ── */}
+      <div
+        className={`sidebar-overlay${mobileOpen ? ' open' : ''}`}
+        onClick={() => setMobileOpen(false)}
+      />
+
       {/* ── Sidebar ── */}
       <aside style={{
-        width: collapsed ? 0 : 210, flexShrink: 0,
+        width: sidebarVisible ? 210 : 0, flexShrink: 0,
         background: 'var(--bg-surface)',
-        borderRight: collapsed ? 'none' : '1px solid var(--border)',
+        borderRight: sidebarVisible ? '1px solid var(--border)' : 'none',
         display: 'flex', flexDirection: 'column',
         transition: 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-        overflow: 'hidden', zIndex: 10,
+        overflow: 'hidden',
+        // On mobile: fixed overlay sidebar
+        ...(isMobile ? {
+          position: 'fixed', top: 0, left: 0, height: '100vh',
+          zIndex: 10, width: mobileOpen ? 210 : 0,
+        } : { zIndex: 10 }),
       }}>
         {/* Logo */}
         <div style={{ padding: collapsed ? '14px 0' : '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, justifyContent: collapsed ? 'center' : 'flex-start' }}>
@@ -264,11 +296,13 @@ export default function AppLayout() {
           height: 52, background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, flexShrink: 0,
         }}>
-          <button onClick={() => setCollapsed(c => !c)} style={{
-            width: 28, height: 28, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-strong)',
-            background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0,
-          }}
+          <button
+            onClick={() => isMobile ? setMobileOpen(o => !o) : setCollapsed(c => !c)}
+            style={{
+              width: 28, height: 28, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-strong)',
+              background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0,
+            }}
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
             ☰
@@ -284,7 +318,7 @@ export default function AppLayout() {
             borderRadius: 20,
           }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: connected ? 'var(--green)' : 'var(--red)', display: 'inline-block', animation: connected ? 'blink 2s infinite' : 'none' }} />
-            <span style={{ fontSize: 10, color: connected ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{connected ? 'Live' : 'Offline'}</span>
+            <span className="live-label" style={{ fontSize: 10, color: connected ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{connected ? 'Live' : 'Offline'}</span>
           </div>
 
           {/* Theme toggle */}
@@ -345,7 +379,7 @@ export default function AppLayout() {
         </header>
 
         {/* Page */}
-        <main style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+        <main className="page-main">
           <Outlet />
         </main>
       </div>

@@ -104,7 +104,7 @@ export function ReceiptFormPage() {
       <div style={{ maxWidth: 720 }}>
         <Card style={{ padding: 24 }}>
           <form onSubmit={submit}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 4 }}>
+            <div className="grid-2col" style={{ gap: 16, marginBottom: 4 }}>
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Supplier <span style={{ color: 'var(--red)' }}>*</span></label>
                 <Input value={supplier} onChange={e => setSupplier(e.target.value)} placeholder="Supplier name" required />
@@ -125,7 +125,7 @@ export function ReceiptFormPage() {
                 <Button size="sm" variant="secondary" type="button" onClick={addItem}>+ Add Line</Button>
               </div>
               {items.map((item, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'end' }}>
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 8, alignItems: 'end' }}>
                   <div style={{ marginBottom: 0 }}>
                     {i === 0 && <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Product</label>}
                     <Select value={item.product} onChange={e => setItem(i, 'product', e.target.value)} required>
@@ -210,7 +210,7 @@ export function ReceiptDetailPage() {
           )}
         </>}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
+      <div className="grid-2col" style={{ gap: 16 }}>
         <Card>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600 }}>Products to Receive</div>
           <Table

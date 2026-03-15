@@ -124,7 +124,7 @@ export function TransfersPage() {
               {products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.sku})</option>)}
             </Select>
           </FormField>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="grid-2col" style={{ gap: 12 }}>
             <FormField label="From Warehouse" required>
               <Select value={form.fromWarehouse} onChange={set('fromWarehouse')} required>
                 <option value="">Select source</option>
@@ -329,7 +329,7 @@ export function WarehousesPage() {
       <PageHeader title="Warehouses" subtitle="Manage storage locations"
         actions={isManager && <Button onClick={() => setShowModal(true)}>+ Add Warehouse</Button>}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: selected ? '340px 1fr' : '1fr', gap: 16 }}>
+      <div className="grid-2col" style={{ gap: 16, gridTemplateColumns: selected ? undefined : '1fr' }}>
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
             {loading ? <Spinner /> : warehouses.map(wh => (

@@ -60,7 +60,7 @@ export function ProductsPage() {
       />
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="filter-row" style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or SKU..."
           style={{ padding: '8px 12px', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 8, fontSize: 13, minWidth: 220, fontFamily: 'var(--font)', color: 'var(--text-primary)', outline: 'none' }} />
         <select value={category} onChange={e => setCategory(e.target.value)}
@@ -126,7 +126,7 @@ export function ProductFormPage() {
       <div style={{ maxWidth: 600 }}>
         <Card style={{ padding: 24 }}>
           <form onSubmit={submit}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="grid-2col" style={{ gap: 16 }}>
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Product Name <span style={{ color: 'var(--red)' }}>*</span></label>
                 <Input value={form.name} onChange={set('name')} placeholder="e.g. Steel Rods" required />
@@ -216,7 +216,7 @@ export function ProductDetailPage() {
           <Badge status={stockStatus} />
         </>}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 20 }}>
+      <div className="grid-3col" style={{ marginBottom: 20 }}>
         <KPICard label="Total Stock" value={`${totalStock} ${product.unit}`} accent="var(--accent)" />
         <KPICard label="Reorder Level" value={`${product.reorderLevel} ${product.unit}`} accent="var(--amber)" />
         <KPICard label="Warehouses" value={product.stocks?.length || 0} accent="var(--green)" />

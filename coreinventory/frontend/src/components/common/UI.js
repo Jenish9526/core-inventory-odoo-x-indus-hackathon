@@ -74,6 +74,7 @@ export const KPICard = ({ label, value, icon, accent = 'var(--accent)', delta, o
   return (
     <div onClick={onClick}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      className="kpi-card"
       style={{
         background: hovered && onClick ? 'var(--bg-elevated)' : 'var(--bg-surface)',
         border: `1px solid ${hovered && onClick ? accent + '40' : 'var(--border)'}`,
@@ -107,12 +108,12 @@ export const Card = ({ children, style = {}, padding = false }) => (
 
 // ── CardHeader ─────────────────────────────────────────────────────────────
 export const CardHeader = ({ title, subtitle, actions }) => (
-  <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+  <div className="card-header">
     <div>
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>{title}</div>
       {subtitle && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{subtitle}</div>}
     </div>
-    {actions && <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{actions}</div>}
+    {actions && <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
   </div>
 );
 
@@ -166,13 +167,13 @@ export const Table = ({ columns, data, loading, emptyMsg = 'No records found', o
 
 // ── PageHeader ─────────────────────────────────────────────────────────────
 export const PageHeader = ({ title, subtitle, actions, breadcrumb }) => (
-  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+  <div className="page-header">
     <div>
       {breadcrumb && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 500, letterSpacing: '0.04em' }}>{breadcrumb}</div>}
       <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1 }}>{title}</h1>
       {subtitle && <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 5 }}>{subtitle}</p>}
     </div>
-    {actions && <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
+    {actions && <div className="page-header-actions">{actions}</div>}
   </div>
 );
 

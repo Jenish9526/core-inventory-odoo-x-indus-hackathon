@@ -39,11 +39,41 @@ import HelpPage from './pages/help/HelpPage';
 import StaffPage from './pages/staff/StaffPage';
 import StaffDetailPage from './pages/staff/StaffDetailPage';
 
+// Role access map — which job roles can access which route prefixes
+const ROLE_ACCESS = {
+  'Warehouse Supervisor':    ['/', '/products', '/purchase-orders', '/receipts', '/deliveries', '/transfers', '/adjustments', '/history', '/performance', '/warehouses'],
+  'Inventory Coordinator':   ['/', '/products', '/purchase-orders', '/receipts', '/deliveries', '/transfers', '/history', '/performance'],
+  'Receiving Clerk':         ['/', '/receipts'],
+  'Dispatch Coordinator':    ['/', '/deliveries'],
+  'Forklift Operator':       ['/', '/transfers'],
+  'Material Handler':        ['/', '/transfers'],
+  'Stock Controller':        ['/', '/products', '/adjustments', '/history', '/performance'],
+  'QC Analyst':              ['/', '/adjustments'],
+  'Quality Inspector':       ['/', '/adjustments'],
+  'Returns Processor':       ['/', '/adjustments'],
+  'Production Store Keeper': ['/', '/receipts', '/transfers'],
+  'Cold Chain Specialist':   ['/', '/receipts', '/transfers', '/adjustments'],
+};
+
 const ProtectedRoute = ({ children, managerOnly = false }) => {
   const { user, loading, isManager } = useAuth();
   if (loading) return <div className="flex h-screen items-center justify-center"><div className="ci-spinner" /></div>;
   if (!user) return <Navigate to="/login" replace />;
   if (managerOnly && !isManager) return <Navigate to="/" replace />;
+  return children;
+};
+
+// Guards a route by job role — redirects staff to their first allowed page
+const RoleRoute = ({ children, path }) => {
+  const { user, isManager } = useAuth();
+  if (isManager || !user?.jobRole) return children;
+  const allowed = ROLE_ACCESS[user.jobRole] || [];
+  const ok = allowed.some(p => p === '/' ? path === '/' : path.startsWith(p));
+  if (!ok) {
+    // redirect to first allowed page that isn't just '/'
+    const first = allowed.find(p => p !== '/') || '/';
+    return <Navigate to={first} replace />;
+  }
   return children;
 };
 
@@ -69,27 +99,27 @@ export default function App() {
             {/* Protected */}
             <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route index element={<DashboardPage />} />
-              <Route path="products" element={<ProductsPage />} />
+              <Route path="products" element={<RoleRoute path="/products"><ProductsPage /></RoleRoute>} />
               <Route path="products/new" element={<ProtectedRoute managerOnly><ProductFormPage /></ProtectedRoute>} />
-              <Route path="products/:id" element={<ProductDetailPage />} />
+              <Route path="products/:id" element={<RoleRoute path="/products"><ProductDetailPage /></RoleRoute>} />
               <Route path="products/:id/edit" element={<ProtectedRoute managerOnly><ProductFormPage /></ProtectedRoute>} />
-              <Route path="receipts" element={<ReceiptsPage />} />
-              <Route path="receipts/new" element={<ReceiptFormPage />} />
-              <Route path="receipts/:id" element={<ReceiptDetailPage />} />
-              <Route path="deliveries" element={<DeliveriesPage />} />
-              <Route path="deliveries/new" element={<DeliveryFormPage />} />
-              <Route path="deliveries/:id" element={<DeliveryDetailPage />} />
-              <Route path="transfers" element={<TransfersPage />} />
-              <Route path="adjustments" element={<AdjustmentsPage />} />
-              <Route path="warehouses" element={<WarehousesPage />} />
-              <Route path="history" element={<LedgerPage />} />
-              <Route path="feedback" element={<FeedbackPage />} />
-              <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
-              <Route path="performance" element={<ProductPerformancePage />} />
+              <Route path="receipts" element={<RoleRoute path="/receipts"><ReceiptsPage /></RoleRoute>} />
+              <Route path="receipts/new" element={<RoleRoute path="/receipts"><ReceiptFormPage /></RoleRoute>} />
+              <Route path="receipts/:id" element={<RoleRoute path="/receipts"><ReceiptDetailPage /></RoleRoute>} />
+              <Route path="deliveries" element={<RoleRoute path="/deliveries"><DeliveriesPage /></RoleRoute>} />
+              <Route path="deliveries/new" element={<RoleRoute path="/deliveries"><DeliveryFormPage /></RoleRoute>} />
+              <Route path="deliveries/:id" element={<RoleRoute path="/deliveries"><DeliveryDetailPage /></RoleRoute>} />
+              <Route path="transfers" element={<RoleRoute path="/transfers"><TransfersPage /></RoleRoute>} />
+              <Route path="adjustments" element={<RoleRoute path="/adjustments"><AdjustmentsPage /></RoleRoute>} />
+              <Route path="warehouses" element={<RoleRoute path="/warehouses"><WarehousesPage /></RoleRoute>} />
+              <Route path="history" element={<RoleRoute path="/history"><LedgerPage /></RoleRoute>} />
+              <Route path="purchase-orders" element={<RoleRoute path="/purchase-orders"><PurchaseOrdersPage /></RoleRoute>} />
+              <Route path="performance" element={<RoleRoute path="/performance"><ProductPerformancePage /></RoleRoute>} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="help" element={<HelpPage />} />
+              <Route path="feedback" element={<FeedbackPage />} />
               <Route path="staff" element={<ProtectedRoute managerOnly><StaffPage /></ProtectedRoute>} />
               <Route path="staff/:id" element={<ProtectedRoute managerOnly><StaffDetailPage /></ProtectedRoute>} />
             </Route>

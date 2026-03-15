@@ -6,6 +6,7 @@ import { dashboardAPI, ledgerAPI } from '../../services/api';
 import { KPICard, Badge, Card, CardHeader, PageHeader, Spinner, EmptyState } from '../../components/common/UI';
 import { useSocket } from '../../context/SocketContext';
 import { useSettings } from '../../context/SettingsContext';
+import { useAuth } from '../../context/AuthContext';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
@@ -68,6 +69,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { stockEvents } = useSocket();
   const { settings } = useSettings();
+  const { user, isManager } = useAuth();
   const [kpis, setKpis] = useState(null);
   const [lowStock, setLowStock] = useState([]);
   const [activity, setActivity] = useState([]);
@@ -290,22 +292,35 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="Dashboard" subtitle="Real-time inventory overview" />
+      <PageHeader
+        title="Dashboard"
+        subtitle={
+          !isManager && user?.jobRole
+            ? `${user.jobRole}${user.warehouse?.name ? ` · ${user.warehouse.name}` : ''}`
+            : 'Real-time inventory overview'
+        }
+      />
 
       {/* KPIs */}
-      <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 12, marginBottom: 24 }}>
+      <div className="grid-kpi stagger" style={{ marginBottom: 24 }}>
         <KPICard label="Products"          value={kpis?.totalProducts}      accent="var(--accent)"  onClick={() => navigate('/products')} />
         <KPICard label="Low Stock"         value={kpis?.lowStockCount}       accent="var(--amber)"  onClick={() => navigate('/products')} />
         <KPICard label="Out of Stock"      value={kpis?.outOfStockCount}     accent="var(--red)"    onClick={() => navigate('/products')} />
-        <KPICard label="Pending Receipts"  value={kpis?.pendingReceipts}     accent="var(--green)"  onClick={() => navigate('/receipts')} />
-        <KPICard label="Pending Deliveries" value={kpis?.pendingDeliveries}  accent="var(--purple)" onClick={() => navigate('/deliveries')} />
-        <KPICard label="Active Transfers"  value={kpis?.scheduledTransfers}  accent="var(--cyan)"   onClick={() => navigate('/transfers')} />
+        {(!user?.jobRole || ['Warehouse Supervisor','Inventory Coordinator','Receiving Clerk','Production Store Keeper','Cold Chain Specialist'].includes(user.jobRole) || isManager) && (
+          <KPICard label="Pending Receipts"  value={kpis?.pendingReceipts}   accent="var(--green)"  onClick={() => navigate('/receipts')} />
+        )}
+        {(!user?.jobRole || ['Warehouse Supervisor','Inventory Coordinator','Dispatch Coordinator'].includes(user.jobRole) || isManager) && (
+          <KPICard label="Pending Deliveries" value={kpis?.pendingDeliveries} accent="var(--purple)" onClick={() => navigate('/deliveries')} />
+        )}
+        {(!user?.jobRole || ['Warehouse Supervisor','Inventory Coordinator','Forklift Operator','Material Handler','Production Store Keeper','Cold Chain Specialist'].includes(user.jobRole) || isManager) && (
+          <KPICard label="Active Transfers"  value={kpis?.scheduledTransfers} accent="var(--cyan)"  onClick={() => navigate('/transfers')} />
+        )}
       </div>
 
 
 
       {/* Row 1 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 320px', gap: 16, alignItems: 'start', marginBottom: 16 }}>
+      <div className="grid-dash-row" style={{ marginBottom: 16 }}>
 
         {/* Stock Movement + Low Stock */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

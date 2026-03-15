@@ -85,6 +85,7 @@ export default function StaffPage() {
         ) : filtered.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No staff members found</div>
         ) : (
+          <div className="table-wrap">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -135,6 +136,7 @@ export default function StaffPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 
