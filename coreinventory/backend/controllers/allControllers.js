@@ -1,10 +1,15 @@
-const { Transfer, Adjustment, Warehouse, Stock, Product, Receipt, Delivery, StockLedger } = require('../models');
+const { Transfer, Adjustment, Warehouse, Stock, Product, Receipt, Delivery, StockLedger, PurchaseOrder } = require('../models');
 const { addStock, deductStock, getLowStockAlerts } = require('../services/inventoryService');
 
 // ── DELIVERIES ────────────────────────────────────────────────────────────
 exports.createDelivery = async (req, res) => {
   try {
-    const delivery = await Delivery.create({ ...req.body, createdBy: req.user._id });
+    let body = { ...req.body };
+    if (req.user.role === 'staff' && req.user.warehouse) {
+      const whId = req.user.warehouse._id || req.user.warehouse;
+      body.items = (body.items || []).map(item => ({ ...item, warehouse: whId }));
+    }
+    const delivery = await Delivery.create({ ...body, createdBy: req.user._id });
     await delivery.populate('items.product items.warehouse');
     res.status(201).json({ success: true, data: delivery });
   } catch (err) {
@@ -17,6 +22,9 @@ exports.getDeliveries = async (req, res) => {
     const { status, page = 1, limit = 20 } = req.query;
     const query = {};
     if (status && status !== 'all') query.status = status;
+    if (req.user.role === 'staff' && req.user.warehouse) {
+      query['items.warehouse'] = req.user.warehouse._id || req.user.warehouse;
+    }
     const [deliveries, total] = await Promise.all([
       Delivery.find(query)
         .populate('items.product', 'name sku unit')
@@ -86,7 +94,13 @@ exports.validateDelivery = async (req, res) => {
 // ── TRANSFERS ─────────────────────────────────────────────────────────────
 exports.createTransfer = async (req, res) => {
   try {
-    const transfer = await Transfer.create({ ...req.body, createdBy: req.user._id });
+    let body = { ...req.body };
+    if (req.user.role === 'staff' && req.user.warehouse) {
+      const whId = (req.user.warehouse._id || req.user.warehouse).toString();
+      // Staff can only transfer FROM their warehouse
+      body.fromWarehouse = whId;
+    }
+    const transfer = await Transfer.create({ ...body, createdBy: req.user._id });
     await transfer.populate('product fromWarehouse toWarehouse');
     res.status(201).json({ success: true, data: transfer });
   } catch (err) {
@@ -99,6 +113,10 @@ exports.getTransfers = async (req, res) => {
     const { status, page = 1, limit = 20 } = req.query;
     const query = {};
     if (status && status !== 'all') query.status = status;
+    if (req.user.role === 'staff' && req.user.warehouse) {
+      const whId = req.user.warehouse._id || req.user.warehouse;
+      query.$or = [{ fromWarehouse: whId }, { toWarehouse: whId }];
+    }
     const [transfers, total] = await Promise.all([
       Transfer.find(query)
         .populate('product', 'name sku unit')
@@ -206,15 +224,19 @@ exports.createAdjustment = async (req, res) => {
 exports.getAdjustments = async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
+    const query = {};
+    if (req.user.role === 'staff' && req.user.warehouse) {
+      query.warehouse = req.user.warehouse._id || req.user.warehouse;
+    }
     const [adj, total] = await Promise.all([
-      Adjustment.find()
+      Adjustment.find(query)
         .populate('product', 'name sku unit')
         .populate('warehouse', 'name')
         .populate('createdBy', 'name')
         .sort('-createdAt')
         .skip((page - 1) * limit)
         .limit(Number(limit)),
-      Adjustment.countDocuments(),
+      Adjustment.countDocuments(query),
     ]);
     res.json({ success: true, data: adj, total });
   } catch (err) {
@@ -253,6 +275,16 @@ exports.getWarehouses = async (req, res) => {
   }
 };
 
+exports.updateWarehouse = async (req, res) => {
+  try {
+    const wh = await Warehouse.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!wh) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, data: wh });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.getWarehouseStock = async (req, res) => {
   try {
     const stocks = await Stock.find({ warehouse: req.params.id })
@@ -266,11 +298,17 @@ exports.getWarehouseStock = async (req, res) => {
 // ── DASHBOARD ─────────────────────────────────────────────────────────────
 exports.getKPIs = async (req, res) => {
   try {
+    const whFilter = (req.user.role === 'staff' && req.user.warehouse)
+      ? { 'items.warehouse': req.user.warehouse._id || req.user.warehouse }
+      : {};
+    const whTransferFilter = (req.user.role === 'staff' && req.user.warehouse)
+      ? { $or: [{ 'items.warehouse': req.user.warehouse._id || req.user.warehouse }, { fromWarehouse: req.user.warehouse._id || req.user.warehouse }] }
+      : {};
     const [totalProducts, pendingReceipts, pendingDeliveries, scheduledTransfers, lowStockAlerts] = await Promise.all([
       Product.countDocuments({ isActive: true }),
-      Receipt.countDocuments({ status: { $in: ['Draft', 'Waiting', 'Ready'] } }),
-      Delivery.countDocuments({ status: { $in: ['Draft', 'Ready', 'In Transit'] } }),
-      Transfer.countDocuments({ status: { $in: ['Draft', 'In Transit'] } }),
+      Receipt.countDocuments({ status: { $in: ['Draft', 'Waiting', 'Ready'] }, ...whFilter }),
+      Delivery.countDocuments({ status: { $in: ['Draft', 'Ready', 'In Transit'] }, ...whFilter }),
+      Transfer.countDocuments({ status: { $in: ['Draft', 'In Transit'] }, ...whTransferFilter }),
       getLowStockAlerts(),
     ]);
     res.json({
@@ -309,14 +347,152 @@ exports.getActivity = async (req, res) => {
   }
 };
 
+// ── PURCHASE ORDERS ───────────────────────────────────────────────────────
+exports.getPurchaseOrders = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    const query = {};
+    if (status && status !== 'all') query.status = status;
+    const [pos, total] = await Promise.all([
+      PurchaseOrder.find(query)
+        .populate('items.product', 'name sku unit')
+        .populate('items.warehouse', 'name')
+        .populate('createdBy', 'name')
+        .sort('-createdAt')
+        .skip((page - 1) * limit)
+        .limit(Number(limit)),
+      PurchaseOrder.countDocuments(query),
+    ]);
+    res.json({ success: true, data: pos, total });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getPurchaseOrder = async (req, res) => {
+  try {
+    const po = await PurchaseOrder.findById(req.params.id)
+      .populate('items.product', 'name sku unit')
+      .populate('items.warehouse', 'name')
+      .populate('createdBy', 'name email');
+    if (!po) return res.status(404).json({ success: false, message: 'PO not found' });
+    res.json({ success: true, data: po });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.createPurchaseOrder = async (req, res) => {
+  try {
+    const po = await PurchaseOrder.create({ ...req.body, createdBy: req.user._id });
+    await po.populate('items.product items.warehouse');
+    res.status(201).json({ success: true, data: po });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.updatePOStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const po = await PurchaseOrder.findById(req.params.id);
+    if (!po) return res.status(404).json({ success: false, message: 'PO not found' });
+    const allowed = { Draft: ['Approved', 'Cancelled'], Approved: ['Ordered', 'Cancelled'], Ordered: ['Received', 'Cancelled'] };
+    if (!allowed[po.status]?.includes(status)) {
+      return res.status(400).json({ success: false, message: `Cannot move from ${po.status} to ${status}` });
+    }
+    po.status = status;
+    if (status === 'Approved') po.approvedAt = new Date();
+    if (status === 'Received') {
+      po.receivedAt = new Date();
+      // Auto-create a receipt
+      const { addStock } = require('../services/inventoryService');
+      for (const item of po.items) {
+        await addStock({
+          productId: item.product,
+          warehouseId: item.warehouse,
+          quantity: item.quantity,
+          type: 'RECEIPT',
+          referenceId: po._id,
+          referenceRef: po.ref,
+          note: `PO received from ${po.supplier}`,
+          userId: req.user._id,
+        });
+      }
+      const io = req.app.get('io');
+      if (io) io.emit('stock_updated', { type: 'PO_RECEIVED', ref: po.ref });
+    }
+    await po.save();
+    await po.populate('items.product items.warehouse createdBy');
+    res.json({ success: true, data: po });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// ── PRODUCT PERFORMANCE ───────────────────────────────────────────────────
+exports.getProductPerformance = async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [outbound, inbound, currentStock] = await Promise.all([
+      StockLedger.aggregate([
+        { $match: { type: 'DELIVERY', createdAt: { $gte: since } } },
+        { $group: { _id: '$product', totalOut: { $sum: { $abs: '$quantity' } }, txCount: { $sum: 1 } } },
+      ]),
+      StockLedger.aggregate([
+        { $match: { type: 'RECEIPT', createdAt: { $gte: since } } },
+        { $group: { _id: '$product', totalIn: { $sum: '$quantity' } } },
+      ]),
+      Stock.aggregate([
+        { $group: { _id: '$product', totalQty: { $sum: '$quantity' } } },
+      ]),
+    ]);
+
+    const outMap = {}, inMap = {}, stockMap = {};
+    outbound.forEach(r => { outMap[r._id] = r; });
+    inbound.forEach(r => { inMap[r._id] = r; });
+    currentStock.forEach(r => { stockMap[r._id] = r.totalQty; });
+
+    const allProductIds = [...new Set([
+      ...outbound.map(r => r._id.toString()),
+      ...inbound.map(r => r._id.toString()),
+    ])];
+
+    const products = await Product.find({ _id: { $in: allProductIds }, isActive: true }, 'name sku category unit reorderLevel');
+
+    const result = products.map(p => {
+      const id = p._id.toString();
+      const totalOut = outMap[id]?.totalOut || 0;
+      const totalIn = inMap[id]?.totalIn || 0;
+      const txCount = outMap[id]?.txCount || 0;
+      const currentQty = stockMap[id] || 0;
+      return { product: p, totalOut, totalIn, txCount, currentQty };
+    }).sort((a, b) => b.totalOut - a.totalOut);
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // ── LEDGER ────────────────────────────────────────────────────────────────
 exports.getLedger = async (req, res) => {
   try {
-    const { product, warehouse, type, page = 1, limit = 30 } = req.query;
+    const { product, warehouse, type, page = 1, limit = 30, dateFrom, dateTo } = req.query;
     const query = {};
     if (product) query.product = product;
     if (warehouse) query.warehouse = warehouse;
+    else if (req.user.role === 'staff' && req.user.warehouse) {
+      query.warehouse = req.user.warehouse._id || req.user.warehouse;
+    }
     if (type && type !== 'all') query.type = type;
+    if (dateFrom || dateTo) {
+      query.createdAt = {};
+      if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
+      if (dateTo) { const d = new Date(dateTo); d.setHours(23,59,59,999); query.createdAt.$lte = d; }
+    }
     const [ledger, total] = await Promise.all([
       StockLedger.find(query)
         .sort('-createdAt')

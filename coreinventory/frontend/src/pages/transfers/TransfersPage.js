@@ -134,7 +134,7 @@ export function TransfersPage() {
             <FormField label="To Warehouse" required>
               <Select value={form.toWarehouse} onChange={set('toWarehouse')} required>
                 <option value="">Select destination</option>
-                {warehouses.filter(w => w._id !== form.fromWarehouse).map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+                {warehouses.filter(w => w._id.toString() !== form.fromWarehouse.toString()).map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
               </Select>
             </FormField>
           </div>

@@ -24,11 +24,11 @@ export const Button = ({ children, variant = 'primary', size = 'md', loading, di
   };
 
   const [hovered, setHovered] = useState(false);
-  const hoverStyle = hovered && !disabled && !loading ? { filter: 'brightness(1.15)', transform: 'translateY(-1px)' } : {};
+  const hoverStyle = hovered && !disabled && !loading ? { filter: 'brightness(1.12)', transform: 'translateY(-1px)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' } : {};
 
   return (
     <button type={type} onClick={onClick} disabled={disabled || loading}
-      style={{ ...base, ...sizes[size], ...variants[variant], ...hoverStyle, ...style }}
+      style={{ ...base, ...sizes[size], ...variants[variant], ...hoverStyle, transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)', ...style }}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       {loading && <span style={{ width: 13, height: 13, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', display: 'inline-block', flexShrink: 0 }} />}
       {!loading && icon && <span style={{ fontSize: 14 }}>{icon}</span>}
@@ -38,25 +38,26 @@ export const Button = ({ children, variant = 'primary', size = 'md', loading, di
 };
 
 // ── Badge ──────────────────────────────────────────────────────────────────
-const var_amber = 'var(--amber)';
-
 export const Badge = ({ status, children }) => {
   const label = children || status;
   const map = {
-    Draft: { bg: 'rgba(74,87,120,0.2)', color: '#8896b3', border: '1px solid rgba(74,87,120,0.3)' },
-    Waiting: { bg: 'var(--amber-dim)', color: var_amber, border: '1px solid rgba(245,158,11,0.2)' },
-    Ready: { bg: 'var(--green-dim)', color: 'var(--green)', border: '1px solid rgba(16,185,129,0.2)' },
-    Done: { bg: 'var(--accent-dim)', color: 'var(--text-accent)', border: '1px solid rgba(59,130,246,0.2)' },
-    Cancelled: { bg: 'var(--red-dim)', color: 'var(--red)', border: '1px solid rgba(239,68,68,0.2)' },
-    'In Transit': { bg: 'var(--purple-dim)', color: 'var(--purple)', border: '1px solid rgba(139,92,246,0.2)' },
-    ok: { bg: 'var(--green-dim)', color: 'var(--green)', border: '1px solid rgba(16,185,129,0.2)' },
-    low: { bg: 'var(--amber-dim)', color: var_amber, border: '1px solid rgba(245,158,11,0.2)' },
-    out: { bg: 'var(--red-dim)', color: 'var(--red)', border: '1px solid rgba(239,68,68,0.2)' },
-    RECEIPT: { bg: 'var(--green-dim)', color: 'var(--green)', border: '1px solid rgba(16,185,129,0.2)' },
-    DELIVERY: { bg: 'var(--red-dim)', color: 'var(--red)', border: '1px solid rgba(239,68,68,0.2)' },
-    TRANSFER_IN: { bg: 'var(--accent-dim)', color: 'var(--text-accent)', border: '1px solid rgba(59,130,246,0.2)' },
-    TRANSFER_OUT: { bg: 'var(--purple-dim)', color: 'var(--purple)', border: '1px solid rgba(139,92,246,0.2)' },
-    ADJUSTMENT: { bg: 'var(--amber-dim)', color: var_amber, border: '1px solid rgba(245,158,11,0.2)' },
+    Draft:       { bg: 'var(--bg-overlay)',   color: 'var(--text-secondary)', border: '1px solid var(--border-strong)' },
+    Waiting:     { bg: 'var(--amber-dim)',     color: 'var(--amber)',          border: '1px solid var(--amber-dim)' },
+    Ready:       { bg: 'var(--green-dim)',     color: 'var(--green)',          border: '1px solid var(--green-dim)' },
+    Done:        { bg: 'var(--accent-dim)',    color: 'var(--text-accent)',    border: '1px solid var(--accent-dim)' },
+    Cancelled:   { bg: 'var(--red-dim)',       color: 'var(--red)',            border: '1px solid var(--red-dim)' },
+    'In Transit':{ bg: 'var(--purple-dim)',    color: 'var(--purple)',         border: '1px solid var(--purple-dim)' },
+    Approved:    { bg: 'var(--accent-dim)',    color: 'var(--text-accent)',    border: '1px solid var(--accent-dim)' },
+    Ordered:     { bg: 'var(--cyan-dim)',      color: 'var(--cyan)',           border: '1px solid var(--cyan-dim)' },
+    Received:    { bg: 'var(--green-dim)',     color: 'var(--green)',          border: '1px solid var(--green-dim)' },
+    ok:          { bg: 'var(--green-dim)',     color: 'var(--green)',          border: '1px solid var(--green-dim)' },
+    low:         { bg: 'var(--amber-dim)',     color: 'var(--amber)',          border: '1px solid var(--amber-dim)' },
+    out:         { bg: 'var(--red-dim)',       color: 'var(--red)',            border: '1px solid var(--red-dim)' },
+    RECEIPT:     { bg: 'var(--green-dim)',     color: 'var(--green)',          border: '1px solid var(--green-dim)' },
+    DELIVERY:    { bg: 'var(--red-dim)',       color: 'var(--red)',            border: '1px solid var(--red-dim)' },
+    TRANSFER_IN: { bg: 'var(--accent-dim)',    color: 'var(--text-accent)',    border: '1px solid var(--accent-dim)' },
+    TRANSFER_OUT:{ bg: 'var(--purple-dim)',    color: 'var(--purple)',         border: '1px solid var(--purple-dim)' },
+    ADJUSTMENT:  { bg: 'var(--amber-dim)',     color: 'var(--amber)',          border: '1px solid var(--amber-dim)' },
   };
   const s = map[status] || map['Draft'];
   return (
@@ -91,7 +92,7 @@ export const KPICard = ({ label, value, icon, accent = 'var(--accent)', delta, o
           }
           {delta && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>{delta}</div>}
         </div>
-        <div style={{ width: 38, height: 38, borderRadius: 10, background: accent + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, border: `1px solid ${accent}25` }}>{icon}</div>
+
       </div>
     </div>
   );
@@ -252,8 +253,8 @@ export const Modal = ({ open, onClose, title, children, width = 560 }) => {
   if (!open) return null;
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20, animation: 'fadeIn 0.15s ease' }}>
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: width, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.7)', animation: 'fadeUp 0.2s ease' }}>
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20, animation: 'fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: width, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.7)', animation: 'fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{title}</h2>
           <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-elevated)', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}

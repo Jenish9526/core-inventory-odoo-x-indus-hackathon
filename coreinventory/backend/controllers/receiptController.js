@@ -3,7 +3,13 @@ const { addStock, getLowStockAlerts } = require('../services/inventoryService');
 
 exports.createReceipt = async (req, res) => {
   try {
-    const receipt = await Receipt.create({ ...req.body, createdBy: req.user._id });
+    // For staff, force warehouse to their assigned warehouse
+    let body = { ...req.body };
+    if (req.user.role === 'staff' && req.user.warehouse) {
+      const whId = req.user.warehouse._id || req.user.warehouse;
+      body.items = (body.items || []).map(item => ({ ...item, warehouse: whId }));
+    }
+    const receipt = await Receipt.create({ ...body, createdBy: req.user._id });
     await receipt.populate('items.product items.warehouse');
     res.status(201).json({ success: true, data: receipt });
   } catch (err) {
@@ -16,6 +22,9 @@ exports.getReceipts = async (req, res) => {
     const { status, page = 1, limit = 20 } = req.query;
     const query = {};
     if (status && status !== 'all') query.status = status;
+    if (req.user.role === 'staff' && req.user.warehouse) {
+      query['items.warehouse'] = req.user.warehouse._id || req.user.warehouse;
+    }
     const [receipts, total] = await Promise.all([
       Receipt.find(query)
         .populate('items.product', 'name sku unit')

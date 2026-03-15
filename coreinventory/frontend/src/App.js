@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { SettingsProvider } from './context/SettingsContext';
 
 // Layout
 import AppLayout from './components/layout/AppLayout';
@@ -28,6 +30,14 @@ import AdjustmentsPage from './pages/adjustments/AdjustmentsPage';
 import WarehousesPage from './pages/warehouses/WarehousesPage';
 import LedgerPage from './pages/history/LedgerPage';
 import FeedbackPage from './pages/feedback/FeedbackPage';
+import PurchaseOrdersPage from './pages/purchaseOrders/PurchaseOrdersPage';
+import ProductPerformancePage from './pages/performance/ProductPerformancePage';
+import ProfilePage from './pages/profile/ProfilePage';
+import SettingsPage from './pages/settings/SettingsPage';
+import NotificationsPage from './pages/notifications/NotificationsPage';
+import HelpPage from './pages/help/HelpPage';
+import StaffPage from './pages/staff/StaffPage';
+import StaffDetailPage from './pages/staff/StaffDetailPage';
 
 const ProtectedRoute = ({ children, managerOnly = false }) => {
   const { user, loading, isManager } = useAuth();
@@ -46,6 +56,8 @@ export default function App() {
   return (
     <AuthProvider>
       <SocketProvider>
+        <ThemeProvider>
+        <SettingsProvider>
         <BrowserRouter>
           <Toaster position="top-right" toastOptions={{ duration: 3500, style: { background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-strong)', fontSize: '13px', fontFamily: 'Plus Jakarta Sans, sans-serif', borderRadius: '10px' } }} />
           <Routes>
@@ -72,11 +84,21 @@ export default function App() {
               <Route path="warehouses" element={<WarehousesPage />} />
               <Route path="history" element={<LedgerPage />} />
               <Route path="feedback" element={<FeedbackPage />} />
+              <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
+              <Route path="performance" element={<ProductPerformancePage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="help" element={<HelpPage />} />
+              <Route path="staff" element={<ProtectedRoute managerOnly><StaffPage /></ProtectedRoute>} />
+              <Route path="staff/:id" element={<ProtectedRoute managerOnly><StaffDetailPage /></ProtectedRoute>} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
+        </SettingsProvider>
+        </ThemeProvider>
       </SocketProvider>
     </AuthProvider>
   );

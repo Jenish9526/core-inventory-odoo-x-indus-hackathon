@@ -33,7 +33,7 @@ export function ReceiptsPage() {
   };
 
   const cols = [
-    { key: 'ref', label: 'Reference', render: r => <span style={{ fontWeight: 600, color: '#2563eb' }}>{r.ref}</span> },
+    { key: 'ref', label: 'Reference', render: r => <span style={{ fontWeight: 600, color: 'var(--text-accent)' }}>{r.ref}</span> },
     { key: 'supplier', label: 'Supplier' },
     { key: 'items', label: 'Items', render: r => `${r.items?.length || 0} product(s)` },
     { key: 'status', label: 'Status', render: r => <Badge status={r.status} /> },
@@ -119,7 +119,7 @@ export function ReceiptFormPage() {
               <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes..." />
             </div>
 
-            <div style={{ borderTop: '1px solid #e2e8f0', margin: '16px 0', paddingTop: 16 }}>
+            <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0', paddingTop: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Products</span>
                 <Button size="sm" variant="secondary" type="button" onClick={addItem}>+ Add Line</Button>
@@ -145,7 +145,7 @@ export function ReceiptFormPage() {
                     <Input type="number" value={item.quantity} onChange={e => setItem(i, 'quantity', e.target.value)} min="1" required />
                   </div>
                   {items.length > 1 && (
-                    <button type="button" onClick={() => removeItem(i)} style={{ padding: '8px 10px', border: '1px solid #fee2e2', borderRadius: 8, background: 'var(--bg-surface)', color: '#ef4444', cursor: 'pointer', marginBottom: 0, fontSize: 14 }}>×</button>
+                    <button type="button" onClick={() => removeItem(i)} style={{ padding: '8px 10px', border: '1px solid var(--red-dim)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--red)', cursor: 'pointer', marginBottom: 0, fontSize: 14 }}>×</button>
                   )}
                 </div>
               ))}
@@ -212,13 +212,13 @@ export function ReceiptDetailPage() {
       />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
         <Card>
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', fontSize: 13, fontWeight: 600 }}>Products to Receive</div>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600 }}>Products to Receive</div>
           <Table
             columns={[
               { key: 'product', label: 'Product', render: r => <div><div style={{ fontWeight: 500 }}>{r.product?.name}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{r.product?.sku}</div></div> },
               { key: 'warehouse', label: 'Warehouse', render: r => r.warehouse?.name },
               { key: 'quantity', label: 'Expected', render: r => `${r.quantity} ${r.product?.unit}` },
-              { key: 'receivedQty', label: 'Received', render: r => <span style={{ color: r.receivedQty > 0 ? '#22c55e' : '#94a3b8' }}>{r.receivedQty} {r.product?.unit}</span> },
+              { key: 'receivedQty', label: 'Received', render: r => <span style={{ color: r.receivedQty > 0 ? 'var(--green)' : 'var(--text-muted)' }}>{r.receivedQty} {r.product?.unit}</span> },
             ]}
             data={receipt.items || []}
           />
@@ -233,12 +233,12 @@ export function ReceiptDetailPage() {
             ['Validated', receipt.validatedAt ? new Date(receipt.validatedAt).toLocaleString() : '—'],
             ['Created By', receipt.createdBy?.name || '—'],
           ].map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f8fafc', fontSize: 13 }}>
-              <span style={{ color: 'var(--text-secondary)' }}>{k}</span>
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{k}</span>
               <span style={{ fontWeight: 500 }}>{v}</span>
             </div>
           ))}
-          {receipt.notes && <div style={{ marginTop: 12, padding: 10, background: 'var(--bg-elevated)', borderRadius: 8, fontSize: 12, color: '#475569' }}>{receipt.notes}</div>}
+          {receipt.notes && <div style={{ marginTop: 12, padding: 10, background: 'var(--bg-elevated)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)' }}>{receipt.notes}</div>}
         </Card>
       </div>
     </div>

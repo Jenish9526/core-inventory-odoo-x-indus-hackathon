@@ -31,6 +31,7 @@ app.use('/api/adjustments', require('./routes/adjustments'));
 app.use('/api/dashboard',   require('./routes/dashboard'));
 app.use('/api/ledger',      require('./routes/ledger'));
 app.use('/api/feedback',    require('./routes/feedback'));
+app.use('/api/purchase-orders', require('./routes/purchaseOrders'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'OK', time: new Date() }));
 

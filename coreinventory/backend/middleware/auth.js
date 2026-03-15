@@ -9,7 +9,7 @@ const protect = async (req, res, next) => {
     }
     const token = auth.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password -otp -otpExpiry');
+    req.user = await User.findById(decoded.id).populate('warehouse', 'name location').select('-password -otp -otpExpiry');
     if (!req.user || !req.user.isActive) {
       return res.status(401).json({ success: false, message: 'User not found or inactive' });
     }

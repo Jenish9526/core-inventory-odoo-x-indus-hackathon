@@ -39,8 +39,8 @@ const Field = ({ label, type = 'text', value, onChange, placeholder, required })
   );
 };
 
-const SubmitBtn = ({ children, loading }) => (
-  <button type="submit" disabled={loading}
+const SubmitBtn = ({ children, loading, onClick }) => (
+  <button type="submit" disabled={loading} onClick={onClick}
     style={{ width: '100%', padding: 11, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontSize: 14, fontWeight: 700, cursor: loading ? 'wait' : 'pointer', fontFamily: 'var(--font)', marginTop: 6, letterSpacing: '-0.01em', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(59,130,246,0.35)' }}
     onMouseEnter={e => !loading && (e.currentTarget.style.filter = 'brightness(1.1)')}
     onMouseLeave={e => (e.currentTarget.style.filter = 'none')}>
@@ -83,16 +83,32 @@ export function LoginPage() {
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'staff' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'staff', warehouse: '', jobRole: '' });
+  const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(false);
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
+  useEffect(() => {
+    fetch('/api/warehouses/public')
+      .then(r => r.json()).then(d => { if (d.data) setWarehouses(d.data); })
+      .catch(() => {});
+  }, []);
+
   const submit = async e => {
-    e.preventDefault(); setLoading(true);
-    try { await authAPI.register(form); toast.success('Account created! Please log in.'); navigate('/login'); }
-    catch (err) { toast.error(err.response?.data?.message || 'Registration failed'); }
+    e.preventDefault();
+    if (form.role === 'staff' && !form.warehouse) { toast.error('Please select a warehouse'); return; }
+    setLoading(true);
+    try {
+      await authAPI.register(form);
+      toast.success('Account created! Please log in.');
+      navigate('/login');
+    } catch (err) { toast.error(err.response?.data?.message || 'Registration failed'); }
     finally { setLoading(false); }
   };
+
+  const selectStyle = { width: '100%', padding: '10px 14px', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font)', outline: 'none' };
+
+  const JOB_ROLES = ['Warehouse Supervisor', 'Inventory Coordinator', 'Receiving Clerk', 'Stock Controller', 'Dispatch Coordinator', 'Production Store Keeper', 'Material Handler', 'Forklift Operator', 'Cold Chain Specialist', 'Quality Inspector', 'Returns Processor', 'QC Analyst'];
 
   return (
     <AuthLayout title="Create account" subtitle="Join CoreInventory IMS">
@@ -102,12 +118,29 @@ export function RegisterPage() {
         <Field label="Password" type="password" value={form.password} onChange={set('password')} placeholder="Min. 6 characters" required />
         <div style={{ marginBottom: 14 }}>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Role</label>
-          <select value={form.role} onChange={set('role')}
-            style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font)', outline: 'none' }}>
+          <select value={form.role} onChange={set('role')} style={selectStyle}>
             <option value="staff">Warehouse Staff</option>
             <option value="manager">Inventory Manager</option>
           </select>
         </div>
+        {form.role === 'staff' && (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Assigned Warehouse <span style={{ color: 'var(--red)' }}>*</span></label>
+              <select value={form.warehouse} onChange={set('warehouse')} required style={selectStyle}>
+                <option value="">— Select warehouse —</option>
+                {warehouses.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Job Role</label>
+              <select value={form.jobRole} onChange={set('jobRole')} style={selectStyle}>
+                <option value="">— Select job role —</option>
+                {JOB_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+          </>
+        )}
         <SubmitBtn loading={loading}>Create account →</SubmitBtn>
       </form>
       <p style={{ textAlign: 'center', marginTop: 18, color: 'var(--text-muted)', fontSize: 12 }}>
@@ -211,10 +244,10 @@ export function ForgotPasswordPage() {
 
       {/* Step 1 — Email */}
       {step === 1 && (
-        <div>
+        <form onSubmit={e => { e.preventDefault(); if (email) sendOTP(); }}>
           <Field label="Email Address" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" required />
-          <SubmitBtn loading={loading} onClick={e => { e.preventDefault(); if (email) sendOTP(); }}>Send OTP →</SubmitBtn>
-        </div>
+          <SubmitBtn loading={loading}>Send OTP →</SubmitBtn>
+        </form>
       )}
 
       {/* Step 2 — OTP boxes */}

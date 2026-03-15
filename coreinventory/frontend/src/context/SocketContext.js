@@ -8,6 +8,10 @@ export const SocketProvider = ({ children }) => {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
   const [stockEvents, setStockEvents] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+
+  const addNotif = (notif) =>
+    setNotifications(prev => [{ ...notif, id: Date.now() + Math.random(), ts: new Date(), read: false }, ...prev.slice(0, 49)]);
 
   useEffect(() => {
     const token = localStorage.getItem('ci_token');
@@ -24,20 +28,31 @@ export const SocketProvider = ({ children }) => {
 
     socket.on('stock_updated', (data) => {
       setStockEvents(prev => [{ ...data, ts: Date.now() }, ...prev.slice(0, 19)]);
-      toast.success(`Stock updated — ${data.ref || data.type}`, { icon: '📦' });
+      const msg = `Stock updated — ${data.ref || data.type}`;
+      toast.success(msg, { icon: '📦' });
+      addNotif({ type: 'stock', icon: '📦', title: 'Stock Updated', message: msg });
     });
 
     socket.on('low_stock_alert', (data) => {
-      toast.error(`⚠️ ${data.count} product(s) running low on stock!`, { duration: 6000 });
+      const msg = `${data.count} product(s) running low on stock`;
+      toast.error(`⚠️ ${msg}`, { duration: 6000 });
+      addNotif({ type: 'warning', icon: '⚠️', title: 'Low Stock Alert', message: msg });
+    });
+
+    socket.on('activity:new', (data) => {
+      addNotif({ type: 'activity', icon: '🔄', title: 'New Activity', message: data.message || data.type });
     });
 
     return () => socket.disconnect();
   }, []);
 
+  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const clearAll = () => setNotifications([]);
   const emit = (event, data) => socketRef.current?.emit(event, data);
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <SocketContext.Provider value={{ connected, stockEvents, emit }}>
+    <SocketContext.Provider value={{ connected, stockEvents, notifications, unreadCount, markAllRead, clearAll, emit }}>
       {children}
     </SocketContext.Provider>
   );

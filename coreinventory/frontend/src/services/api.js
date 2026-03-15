@@ -33,6 +33,9 @@ export const authAPI = {
   verifyOTP: (data) => api.post('/auth/verify-otp', data),
   resetPassword: (data) => api.post('/auth/reset-password', data),
   getMe: () => api.get('/auth/me'),
+  updateMe: (data) => api.put('/auth/me', data),
+  changePassword: (data) => api.put('/auth/me/password', data),
+  deleteAccount: () => api.delete('/auth/me'),
 };
 
 // ── Products ──────────────────────────────────────────────
@@ -49,6 +52,7 @@ export const productsAPI = {
 export const warehousesAPI = {
   getAll: () => api.get('/warehouses'),
   create: (data) => api.post('/warehouses', data),
+  update: (id, data) => api.put(`/warehouses/${id}`, data),
   getStock: (id) => api.get(`/warehouses/${id}/stock`),
 };
 
@@ -87,11 +91,28 @@ export const dashboardAPI = {
   getKPIs: () => api.get('/dashboard/kpis'),
   getLowStock: () => api.get('/dashboard/low-stock'),
   getActivity: () => api.get('/dashboard/activity'),
+  getProductPerformance: (params) => api.get('/dashboard/product-performance', { params }),
+};
+
+// ── Purchase Orders ───────────────────────────────────────
+export const purchaseOrdersAPI = {
+  getAll: (params) => api.get('/purchase-orders', { params }),
+  getOne: (id) => api.get(`/purchase-orders/${id}`),
+  create: (data) => api.post('/purchase-orders', data),
+  updateStatus: (id, status) => api.patch(`/purchase-orders/${id}/status`, { status }),
 };
 
 // ── Ledger ────────────────────────────────────────────────
 export const ledgerAPI = {
   getAll: (params) => api.get('/ledger', { params }),
+};
+
+// ── Staff Management (manager only) ────────────────────────────
+export const staffAPI = {
+  getAll: () => api.get('/auth/staff'),
+  getOne: (id) => api.get(`/auth/staff/${id}`),
+  create: (data) => api.post('/auth/staff', data),
+  update: (id, data) => api.put(`/auth/staff/${id}`, data),
 };
 
 // ── Feedback ──────────────────────────────────────────────

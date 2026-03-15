@@ -30,7 +30,7 @@ const date = (daysAgo) => new Date(Date.now() - daysAgo * 86400000);
 const pad = (n, prefix, len = 4) => `${prefix}-${String(n).padStart(len, '0')}`;
 
 // ─── Schemas (inline, no separate files needed) ───────────────────────────────
-const userSchema = new mongoose.Schema({ name: String, email: String, password: String, role: String, warehouse: mongoose.Schema.Types.ObjectId, jobRole: String, isActive: { type: Boolean, default: true } }, { timestamps: true });
+const userSchema = new mongoose.Schema({ name: String, email: String, password: String, role: String, isActive: { type: Boolean, default: true } }, { timestamps: true });
 const warehouseSchema = new mongoose.Schema({ name: String, location: String, description: String, isActive: { type: Boolean, default: true } }, { timestamps: true });
 const productSchema = new mongoose.Schema({ name: String, sku: String, category: String, unit: String, reorderLevel: Number, description: String, barcode: String, isActive: { type: Boolean, default: true } }, { timestamps: true });
 const stockSchema = new mongoose.Schema({ product: mongoose.Schema.Types.ObjectId, warehouse: mongoose.Schema.Types.ObjectId, quantity: Number }, { timestamps: true });
@@ -687,39 +687,17 @@ async function seed() {
     name: 'Rajesh Sharma', email: 'manager@coreinventory.com',
     password: await bcrypt.hash('Manager@123', 12), role: 'manager',
   });
+  const staff = await User.create({
+    name: 'Priya Patel', email: 'staff@coreinventory.com',
+    password: await bcrypt.hash('Staff@123', 12), role: 'staff',
+  });
+  console.log('✅ Users: manager@coreinventory.com / Manager@123');
 
   // ── 2. WAREHOUSES ─────────────────────────────────────────────────────────
   console.log('Creating warehouses...');
   const warehouses = await Warehouse.insertMany(WAREHOUSES);
   const [mainWH, secWH, prodWH, coldWH, returnWH] = warehouses;
   console.log(`✅ Warehouses: ${warehouses.length}`);
-
-  // ── STAFF MEMBERS (assigned to warehouses) ────────────────────────────────
-  const STAFF_SEED = [
-    // Main Distribution Center (3 staff)
-    { name: 'Priya Patel',     email: 'staff@coreinventory.com',   jobRole: 'Warehouse Supervisor',  wh: mainWH._id },
-    { name: 'Arjun Mehta',     email: 'arjun.mehta@coreinv.com',   jobRole: 'Inventory Coordinator', wh: mainWH._id },
-    { name: 'Sneha Reddy',     email: 'sneha.reddy@coreinv.com',   jobRole: 'Receiving Clerk',       wh: mainWH._id },
-    // Secondary Storage (2 staff)
-    { name: 'Vikram Singh',    email: 'vikram.singh@coreinv.com',  jobRole: 'Stock Controller',      wh: secWH._id },
-    { name: 'Anita Desai',     email: 'anita.desai@coreinv.com',   jobRole: 'Dispatch Coordinator',  wh: secWH._id },
-    // Production Floor (3 staff)
-    { name: 'Rohit Kumar',     email: 'rohit.kumar@coreinv.com',   jobRole: 'Production Store Keeper', wh: prodWH._id },
-    { name: 'Kavya Nair',      email: 'kavya.nair@coreinv.com',    jobRole: 'Material Handler',      wh: prodWH._id },
-    { name: 'Suresh Iyer',     email: 'suresh.iyer@coreinv.com',   jobRole: 'Forklift Operator',     wh: prodWH._id },
-    // Cold Storage (2 staff)
-    { name: 'Meera Joshi',     email: 'meera.joshi@coreinv.com',   jobRole: 'Cold Chain Specialist', wh: coldWH._id },
-    { name: 'Deepak Verma',    email: 'deepak.verma@coreinv.com',  jobRole: 'Quality Inspector',     wh: coldWH._id },
-    // Returns & QC (2 staff)
-    { name: 'Pooja Sharma',    email: 'pooja.sharma@coreinv.com',  jobRole: 'Returns Processor',     wh: returnWH._id },
-    { name: 'Kiran Rao',       email: 'kiran.rao@coreinv.com',     jobRole: 'QC Analyst',            wh: returnWH._id },
-  ];
-  const staffPassword = await bcrypt.hash('Staff@123', 12);
-  const staffUsers = await User.insertMany(
-    STAFF_SEED.map(s => ({ name: s.name, email: s.email, password: staffPassword, role: 'staff', warehouse: s.wh, jobRole: s.jobRole }))
-  );
-  const staff = staffUsers[0]; // keep reference for seeding operations
-  console.log(`✅ Users: 1 manager + ${staffUsers.length} staff`);
 
   // ── 3. PRODUCTS ───────────────────────────────────────────────────────────
   console.log('Creating products...');
@@ -737,214 +715,216 @@ async function seed() {
   let pi = 0;
   for (const [category, items] of Object.entries(PRODUCT_DATA)) {
     for (const [name, sku, unit, reorderLevel, initialQty] of items) {
-      productMap[sku] = { product: products[pi], initialQty, reorderLevel };
+      productMap[sku] = { product: products[pi], initialQty };
       pi++;
     }
   }
 
-  // ── 4. STOCK (all 5 warehouses) ───────────────────────────────────────────
+  // ── 4. STOCK (initial quantities) ─────────────────────────────────────────
   console.log('Setting initial stock levels...');
   const stockDocs = [];
-  const stockBalances = {};
+  const stockBalances = {}; // key: `${productId}_${warehouseId}` => qty
 
-  const productSkus = Object.keys(productMap);
-  const shuffled = [...productSkus].sort(() => Math.random() - 0.5);
-  const outOfStockCount = Math.floor(shuffled.length * 0.08);
-  const lowStockCount   = Math.floor(shuffled.length * 0.12);
-  const outOfStockSkus  = new Set(shuffled.slice(0, outOfStockCount));
-  const lowStockSkus    = new Set(shuffled.slice(outOfStockCount, outOfStockCount + lowStockCount));
+  for (const [sku, { product, initialQty }] of Object.entries(productMap)) {
+    // Distribute stock across main + secondary warehouses
+    const mainQty = Math.round(initialQty * 0.65);
+    const secQty = Math.round(initialQty * 0.25);
+    const prodQty = Math.round(initialQty * 0.10);
 
-  // Per-warehouse split ratios: main=40%, sec=25%, prod=15%, cold=12%, returns=8%
-  const WH_RATIOS = [
-    { wh: mainWH,   r: 0.40 },
-    { wh: secWH,    r: 0.25 },
-    { wh: prodWH,   r: 0.15 },
-    { wh: coldWH,   r: 0.12 },
-    { wh: returnWH, r: 0.08 },
-  ];
+    stockDocs.push({ product: product._id, warehouse: mainWH._id, quantity: mainQty });
+    stockDocs.push({ product: product._id, warehouse: secWH._id, quantity: secQty });
+    stockDocs.push({ product: product._id, warehouse: prodWH._id, quantity: prodQty });
 
-  for (const [sku, { product, initialQty, reorderLevel }] of Object.entries(productMap)) {
-    let totalQty;
-    if (outOfStockSkus.has(sku)) {
-      totalQty = rand(0, 3);
-    } else if (lowStockSkus.has(sku)) {
-      totalQty = rand(1, Math.max(1, Math.floor(reorderLevel * 0.8)));
-    } else {
-      totalQty = Math.max(initialQty, reorderLevel * rand(2, 5));
-    }
-
-    for (const { wh, r } of WH_RATIOS) {
-      const qty = outOfStockSkus.has(sku) ? (wh === mainWH ? totalQty : 0) : Math.round(totalQty * r);
-      stockDocs.push({ product: product._id, warehouse: wh._id, quantity: qty });
-      stockBalances[`${product._id}_${wh._id}`] = qty;
-    }
+    stockBalances[`${product._id}_${mainWH._id}`] = mainQty;
+    stockBalances[`${product._id}_${secWH._id}`] = secQty;
+    stockBalances[`${product._id}_${prodWH._id}`] = prodQty;
   }
   await Stock.insertMany(stockDocs);
-  console.log(`✅ Stock records: ${stockDocs.length} across all 5 warehouses`);
+  console.log(`✅ Stock records: ${stockDocs.length}`);
 
-  // ── 5. RECEIPTS (Receiving Clerks + Supervisors handle incoming goods) ──────
+  // ── 5. RECEIPTS ───────────────────────────────────────────────────────────
   console.log('Creating receipts...');
   const productList = products;
+  const receiptStatuses = ['Done', 'Done', 'Done', 'Done', 'Done', 'Ready', 'Waiting', 'Draft'];
   const ledgerDocs = [];
   const receipts = [];
 
-  // Staff by role for realistic attribution
-  const byEmail = (email) => staffUsers.find(s => s.email === email);
-  const receivingStaff  = [byEmail('staff@coreinventory.com'), byEmail('sneha.reddy@coreinv.com'), byEmail('arjun.mehta@coreinv.com')]; // Main DC
-  const secStaff        = [byEmail('vikram.singh@coreinv.com'), byEmail('anita.desai@coreinv.com')]; // Secondary
-  const prodStaff       = [byEmail('rohit.kumar@coreinv.com'), byEmail('kavya.nair@coreinv.com'), byEmail('suresh.iyer@coreinv.com')]; // Production
-  const coldStaff       = [byEmail('meera.joshi@coreinv.com'), byEmail('deepak.verma@coreinv.com')]; // Cold
-  const returnStaff     = [byEmail('pooja.sharma@coreinv.com'), byEmail('kiran.rao@coreinv.com')]; // Returns
-
-  // Warehouse → staff mapping
-  const whStaffMap = {
-    [mainWH._id]:   receivingStaff,
-    [secWH._id]:    secStaff,
-    [prodWH._id]:   prodStaff,
-    [coldWH._id]:   coldStaff,
-    [returnWH._id]: returnStaff,
-  };
-
-  const receiptStatuses = ['Done', 'Done', 'Done', 'Done', 'Done', 'Ready', 'Waiting', 'Draft'];
-  // Receipts go to all warehouses; Receiving Clerk / Supervisor / Store Keeper create them
-  const receiptCreators = [...receivingStaff, ...secStaff, byEmail('rohit.kumar@coreinv.com'), mgr];
-  for (let i = 1; i <= 100; i++) {
-    const status   = pick(receiptStatuses);
+  for (let i = 1; i <= 80; i++) {
+    const status = pick(receiptStatuses);
     const supplier = pick(SUPPLIERS);
-    const daysAgo  = rand(1, 180);
-    const wh       = pick([mainWH, secWH, prodWH, coldWH]);
-    const creator  = pick(whStaffMap[wh._id] || receiptCreators);
+    const daysAgo = rand(1, 180);
     const numItems = rand(2, 6);
-    const items    = pickN(productList, numItems).map(p => {
+    const itemProducts = pickN(productList, numItems);
+    const items = itemProducts.map(p => {
       const qty = rand(20, 500);
-      return { product: p._id, warehouse: wh._id, quantity: qty, receivedQty: status === 'Done' ? qty : 0 };
+      return { product: p._id, warehouse: pick([mainWH._id, secWH._id]), quantity: qty, receivedQty: status === 'Done' ? qty : 0 };
     });
+
     const receipt = {
-      ref: pad(i, 'REC'), supplier, status, items,
-      notes: pick(['', `Order #${rand(10000,99999)}`, `PO Ref: ${rand(1000,9999)}`, `Contract ref ${rand(100,999)}`]),
+      ref: pad(i, 'REC'),
+      supplier, status, items,
+      notes: pick(['', '', `Order #${rand(10000, 99999)}`, `PO Ref: ${rand(1000, 9999)}`, `Contract ref ${rand(100, 999)}`]),
       scheduledDate: date(daysAgo + rand(0, 7)),
       validatedAt: status === 'Done' ? date(daysAgo) : undefined,
-      createdBy: creator._id, createdAt: date(daysAgo + 1),
+      createdBy: pick([mgr._id, staff._id]),
+      createdAt: date(daysAgo + 1),
     };
     receipts.push(receipt);
+
+    // Ledger entries for Done receipts
     if (status === 'Done') {
       for (const item of items) {
         const key = `${item.product}_${item.warehouse}`;
-        stockBalances[key] = (stockBalances[key] || 0) + item.quantity;
-        ledgerDocs.push({ product: item.product, warehouse: item.warehouse, type: 'RECEIPT', quantity: item.quantity, balanceAfter: stockBalances[key], referenceRef: receipt.ref, note: `Receipt from ${supplier}`, createdBy: creator._id, createdAt: date(daysAgo) });
+        const prev = stockBalances[key] || 0;
+        stockBalances[key] = prev + item.quantity;
+        ledgerDocs.push({
+          product: item.product, warehouse: item.warehouse,
+          type: 'RECEIPT', quantity: item.quantity, balanceAfter: stockBalances[key],
+          referenceRef: receipt.ref,
+          note: `Receipt from ${supplier}`, createdBy: mgr._id,
+          createdAt: date(daysAgo),
+        });
       }
     }
   }
-  await Receipt.insertMany(receipts);
-  console.log(`✅ Receipts: ${receipts.length}`);
+  await Receipt.insertMany(receipts.map(r => ({ ...r })));
+  console.log(`✅ Receipts: 80`);
 
-  // ── 6. DELIVERIES (Dispatch Coordinators + Supervisors handle outgoing) ──────
+  // ── 6. DELIVERIES ─────────────────────────────────────────────────────────
   console.log('Creating deliveries...');
-  const deliveries = [];
   const deliveryStatuses = ['Done', 'Done', 'Done', 'Done', 'Ready', 'Draft', 'Cancelled'];
-  // Dispatch Coordinator, Supervisor, Inventory Coordinator create deliveries
-  const deliveryCreators = [byEmail('anita.desai@coreinv.com'), byEmail('staff@coreinventory.com'), byEmail('arjun.mehta@coreinv.com'), byEmail('vikram.singh@coreinv.com'), mgr];
-  for (let i = 1; i <= 80; i++) {
-    const status   = pick(deliveryStatuses);
+  const deliveries = [];
+
+  for (let i = 1; i <= 60; i++) {
+    const status = pick(deliveryStatuses);
     const customer = pick(CUSTOMERS);
-    const daysAgo  = rand(1, 150);
-    const wh       = pick([mainWH, secWH]);
-    const creator  = pick(deliveryCreators);
-    const items    = pickN(productList, rand(1, 5)).map(p => {
+    const daysAgo = rand(1, 150);
+    const numItems = rand(1, 5);
+    const itemProducts = pickN(productList, numItems);
+    const items = itemProducts.map(p => {
       const qty = rand(5, 200);
-      return { product: p._id, warehouse: wh._id, quantity: qty, pickedQty: status === 'Done' ? qty : 0 };
+      return { product: p._id, warehouse: pick([mainWH._id, secWH._id]), quantity: qty, pickedQty: status === 'Done' ? qty : 0 };
     });
+
     const delivery = {
-      ref: pad(i, 'DEL'), customer, status, items,
-      notes: pick(['', `SO #${rand(10000,99999)}`, `Sales order: ${rand(1000,9999)}`]),
+      ref: pad(i, 'DEL'),
+      customer, status, items,
+      notes: pick(['', '', `SO #${rand(10000, 99999)}`, `Sales order: ${rand(1000, 9999)}`]),
       scheduledDate: date(daysAgo + rand(0, 5)),
       validatedAt: status === 'Done' ? date(daysAgo) : undefined,
-      createdBy: creator._id, createdAt: date(daysAgo + 1),
+      createdBy: pick([mgr._id, staff._id]),
+      createdAt: date(daysAgo + 1),
     };
     deliveries.push(delivery);
+
     if (status === 'Done') {
       for (const item of items) {
         const key = `${item.product}_${item.warehouse}`;
         const prev = stockBalances[key] || 0;
         const deduct = Math.min(item.quantity, prev);
         stockBalances[key] = Math.max(0, prev - deduct);
-        ledgerDocs.push({ product: item.product, warehouse: item.warehouse, type: 'DELIVERY', quantity: -deduct, balanceAfter: stockBalances[key], referenceRef: delivery.ref, note: `Delivery to ${customer}`, createdBy: creator._id, createdAt: date(daysAgo) });
+        ledgerDocs.push({
+          product: item.product, warehouse: item.warehouse,
+          type: 'DELIVERY', quantity: -deduct, balanceAfter: stockBalances[key],
+          referenceRef: delivery.ref,
+          note: `Delivery to ${customer}`, createdBy: mgr._id,
+          createdAt: date(daysAgo),
+        });
       }
     }
   }
-  await Delivery.insertMany(deliveries);
-  console.log(`✅ Deliveries: ${deliveries.length}`);
+  await Delivery.insertMany(deliveries.map(d => ({ ...d })));
+  console.log(`✅ Deliveries: 60`);
 
-  // ── 7. TRANSFERS (Forklift Operators + Material Handlers move stock) ─────────
+  // ── 7. TRANSFERS ──────────────────────────────────────────────────────────
   console.log('Creating transfers...');
-  const transfers = [];
   const transferStatuses = ['Done', 'Done', 'Done', 'In Transit', 'Draft'];
-  // Forklift Operator, Material Handler, Stock Controller create transfers
-  const transferCreators = [byEmail('suresh.iyer@coreinv.com'), byEmail('kavya.nair@coreinv.com'), byEmail('vikram.singh@coreinv.com'), byEmail('rohit.kumar@coreinv.com'), mgr];
   const transferPairs = [
-    [mainWH,   prodWH],   // main → production (replenishment)
-    [mainWH,   secWH],    // main → secondary (overflow)
-    [secWH,    prodWH],   // secondary → production
-    [secWH,    mainWH],   // secondary → main (rebalance)
-    [mainWH,   coldWH],   // main → cold storage
-    [coldWH,   mainWH],   // cold → main (thaw/release)
-    [prodWH,   returnWH], // production → returns (defective)
-    [mainWH,   returnWH], // main → returns (QC hold)
-    [returnWH, mainWH],   // returns → main (cleared)
-    [secWH,    coldWH],   // secondary → cold
+    [mainWH._id, prodWH._id],
+    [mainWH._id, secWH._id],
+    [secWH._id, prodWH._id],
+    [secWH._id, mainWH._id],
+    [prodWH._id, returnWH._id],
   ];
-  for (let i = 1; i <= 60; i++) {
-    const status  = pick(transferStatuses);
+  const transfers = [];
+
+  for (let i = 1; i <= 40; i++) {
+    const status = pick(transferStatuses);
     const [fromWH, toWH] = pick(transferPairs);
-    const p       = pick(productList);
-    const qty     = rand(10, 200);
+    const p = pick(productList);
+    const qty = rand(10, 200);
     const daysAgo = rand(1, 120);
-    const creator = pick(transferCreators);
+
     const transfer = {
-      ref: pad(i, 'TRF'), product: p._id,
-      fromWarehouse: fromWH._id, toWarehouse: toWH._id,
+      ref: pad(i, 'TRF'),
+      product: p._id, fromWarehouse: fromWH, toWarehouse: toWH,
       quantity: qty, status,
-      notes: pick(['Replenishment run', 'Production order', 'Stock balancing', 'Emergency transfer', 'QC hold', 'Cold chain move', '']),
+      notes: pick(['', `Replenishment run`, `Production order`, `Stock balancing`, `Emergency transfer`]),
       completedAt: status === 'Done' ? date(daysAgo) : undefined,
-      createdBy: creator._id, createdAt: date(daysAgo + 1),
+      createdBy: pick([mgr._id, staff._id]),
+      createdAt: date(daysAgo + 1),
     };
     transfers.push(transfer);
+
     if (status === 'Done') {
-      const kF = `${p._id}_${fromWH._id}`, kT = `${p._id}_${toWH._id}`;
-      const prev = stockBalances[kF] || 0;
-      const deduct = Math.min(qty, prev);
-      stockBalances[kF] = Math.max(0, prev - deduct);
-      stockBalances[kT] = (stockBalances[kT] || 0) + deduct;
-      ledgerDocs.push({ product: p._id, warehouse: fromWH._id, type: 'TRANSFER_OUT', quantity: -deduct, balanceAfter: stockBalances[kF], referenceRef: transfer.ref, note: 'Internal transfer out', createdBy: creator._id, createdAt: date(daysAgo) });
-      ledgerDocs.push({ product: p._id, warehouse: toWH._id,   type: 'TRANSFER_IN',  quantity:  deduct, balanceAfter: stockBalances[kT], referenceRef: transfer.ref, note: 'Internal transfer in',  createdBy: creator._id, createdAt: date(daysAgo) });
+      const keyFrom = `${p._id}_${fromWH}`;
+      const keyTo = `${p._id}_${toWH}`;
+      const fromPrev = stockBalances[keyFrom] || 0;
+      const deduct = Math.min(qty, fromPrev);
+      stockBalances[keyFrom] = Math.max(0, fromPrev - deduct);
+      stockBalances[keyTo] = (stockBalances[keyTo] || 0) + deduct;
+
+      ledgerDocs.push({
+        product: p._id, warehouse: fromWH, type: 'TRANSFER_OUT',
+        quantity: -deduct, balanceAfter: stockBalances[keyFrom],
+        referenceRef: transfer.ref, note: 'Internal transfer out',
+        createdBy: mgr._id, createdAt: date(daysAgo),
+      });
+      ledgerDocs.push({
+        product: p._id, warehouse: toWH, type: 'TRANSFER_IN',
+        quantity: deduct, balanceAfter: stockBalances[keyTo],
+        referenceRef: transfer.ref, note: 'Internal transfer in',
+        createdBy: mgr._id, createdAt: date(daysAgo),
+      });
     }
   }
-  await Transfer.insertMany(transfers);
-  console.log(`✅ Transfers: ${transfers.length}`);
+  await Transfer.insertMany(transfers.map(t => ({ ...t })));
+  console.log(`✅ Transfers: 40`);
 
-  // ── 8. ADJUSTMENTS (QC Analysts + Quality Inspectors + Supervisors) ──────────
+  // ── 8. ADJUSTMENTS ────────────────────────────────────────────────────────
   console.log('Creating adjustments...');
+  const adjReasons = ['Physical count', 'Damaged goods', 'Theft / Loss', 'Expiry', 'Data correction', 'Found in audit', 'Supplier shortage'];
   const adjustments = [];
-  const adjReasons = ['Physical count', 'Damaged goods', 'Theft / Loss', 'Expiry', 'Data correction', 'Found in audit', 'Supplier shortage', 'QC rejection', 'Cold chain breach', 'Returns restocked'];
-  // QC Analyst, Quality Inspector, Supervisor, Inventory Coordinator do adjustments
-  const adjCreators = [byEmail('kiran.rao@coreinv.com'), byEmail('deepak.verma@coreinv.com'), byEmail('staff@coreinventory.com'), byEmail('arjun.mehta@coreinv.com'), mgr];
-  const adjWhPool = [mainWH._id, secWH._id, prodWH._id, coldWH._id, returnWH._id];
-  for (let i = 1; i <= 50; i++) {
-    const p       = pick(productList);
-    const wh      = pick(adjWhPool);
-    const key     = `${p._id}_${wh}`;
-    const prev    = stockBalances[key] || rand(10, 100);
-    const diff    = rand(-25, 20);
-    const newQty  = Math.max(0, prev + diff);
+
+  for (let i = 1; i <= 30; i++) {
+    const p = pick(productList);
+    const wh = pick([mainWH._id, secWH._id]);
+    const key = `${p._id}_${wh}`;
+    const prev = stockBalances[key] || rand(10, 100);
+    const diff = rand(-20, 15);
+    const newQty = Math.max(0, prev + diff);
     const daysAgo = rand(1, 90);
-    const reason  = pick(adjReasons);
-    const creator = pick(adjCreators);
+    const reason = pick(adjReasons);
+
     stockBalances[key] = newQty;
-    adjustments.push({ ref: pad(i, 'ADJ'), product: p._id, warehouse: wh, previousQty: prev, newQty, difference: newQty - prev, reason, createdBy: creator._id, createdAt: date(daysAgo) });
-    ledgerDocs.push({ product: p._id, warehouse: wh, type: 'ADJUSTMENT', quantity: newQty - prev, balanceAfter: newQty, referenceRef: pad(i, 'ADJ'), note: reason, createdBy: creator._id, createdAt: date(daysAgo) });
+
+    adjustments.push({
+      ref: pad(i, 'ADJ'),
+      product: p._id, warehouse: wh,
+      previousQty: prev, newQty, difference: newQty - prev, reason,
+      createdBy: mgr._id,
+      createdAt: date(daysAgo),
+    });
+
+    ledgerDocs.push({
+      product: p._id, warehouse: wh, type: 'ADJUSTMENT',
+      quantity: newQty - prev, balanceAfter: newQty,
+      referenceRef: pad(i, 'ADJ'), note: reason,
+      createdBy: mgr._id, createdAt: date(daysAgo),
+    });
   }
   await Adjustment.insertMany(adjustments);
-  console.log(`✅ Adjustments: ${adjustments.length}`);
+  console.log(`✅ Adjustments: 30`);
 
   // ── 9. LEDGER ─────────────────────────────────────────────────────────────
   console.log('Creating ledger entries...');
@@ -955,20 +935,19 @@ async function seed() {
   console.log('\n─────────────────────────────────────────');
   console.log('✅  CoreInventory Database Seeded!');
   console.log('─────────────────────────────────────────');
-  console.log(`  Users          : 1 manager + ${staffUsers.length} staff`);
+  console.log(`  Users          : 2`);
   console.log(`  Warehouses     : ${warehouses.length}`);
   console.log(`  Products       : ${products.length}`);
   console.log(`  Stock records  : ${stockDocs.length}`);
-  console.log(`  Receipts       : ${receipts.length}`);
-  console.log(`  Deliveries     : ${deliveries.length}`);
-  console.log(`  Transfers      : ${transfers.length}`);
-  console.log(`  Adjustments    : ${adjustments.length}`);
+  console.log(`  Receipts       : 80`);
+  console.log(`  Deliveries     : 60`);
+  console.log(`  Transfers      : 40`);
+  console.log(`  Adjustments    : 30`);
   console.log(`  Ledger entries : ${ledgerDocs.length}`);
   console.log('─────────────────────────────────────────');
   console.log('\n  LOGIN CREDENTIALS:');
   console.log('  Manager  → manager@coreinventory.com  / Manager@123');
-  console.log('  Staff    → staff@coreinventory.com    / Staff@123  (Main Distribution Center)');
-  console.log('  + 11 more staff accounts, all password: Staff@123');
+  console.log('  Staff    → staff@coreinventory.com    / Staff@123');
   console.log('─────────────────────────────────────────\n');
 
   await mongoose.disconnect();

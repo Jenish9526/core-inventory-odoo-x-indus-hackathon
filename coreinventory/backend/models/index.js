@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true, minlength: 6 },
   role: { type: String, enum: ['manager', 'staff'], default: 'staff' },
+  warehouse: { type: mongoose.Schema.Types.ObjectId, ref: 'Warehouse', default: null },
+  jobRole: { type: String, default: '' },
   otp: String,
   otpExpiry: Date,
   isActive: { type: Boolean, default: true },
@@ -38,6 +40,7 @@ const warehouseSchema = new mongoose.Schema({
   name: { type: String, required: true },
   location: String,
   description: String,
+  capacity: { type: Number, default: 10000 },
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
@@ -153,6 +156,32 @@ const stockLedgerSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
+// PURCHASE ORDER
+const poItemSchema = new mongoose.Schema({
+  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  warehouse: { type: mongoose.Schema.Types.ObjectId, ref: 'Warehouse', required: true },
+  quantity: { type: Number, required: true, min: 1 },
+  unitCost: { type: Number, default: 0 },
+});
+const purchaseOrderSchema = new mongoose.Schema({
+  ref: { type: String, unique: true },
+  supplier: { type: String, required: true },
+  status: { type: String, enum: ['Draft', 'Approved', 'Ordered', 'Received', 'Cancelled'], default: 'Draft' },
+  items: [poItemSchema],
+  notes: String,
+  expectedDate: Date,
+  approvedAt: Date,
+  receivedAt: Date,
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+}, { timestamps: true });
+purchaseOrderSchema.pre('save', async function (next) {
+  if (!this.ref) {
+    const count = await mongoose.model('PurchaseOrder').countDocuments();
+    this.ref = 'PO-' + String(count + 1).padStart(4, '0');
+  }
+  next();
+});
+
 const User = mongoose.model('User', userSchema);
 const Product = mongoose.model('Product', productSchema);
 const Warehouse = mongoose.model('Warehouse', warehouseSchema);
@@ -162,5 +191,6 @@ const Delivery = mongoose.model('Delivery', deliverySchema);
 const Transfer = mongoose.model('Transfer', transferSchema);
 const Adjustment = mongoose.model('Adjustment', adjustmentSchema);
 const StockLedger = mongoose.model('StockLedger', stockLedgerSchema);
+const PurchaseOrder = mongoose.model('PurchaseOrder', purchaseOrderSchema);
 
-module.exports = { User, Product, Warehouse, Stock, Receipt, Delivery, Transfer, Adjustment, StockLedger };
+module.exports = { User, Product, Warehouse, Stock, Receipt, Delivery, Transfer, Adjustment, StockLedger, PurchaseOrder };

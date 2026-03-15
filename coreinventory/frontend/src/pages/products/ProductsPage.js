@@ -40,12 +40,12 @@ export function ProductsPage() {
     { key: 'category', label: 'Category' },
     { key: 'unit', label: 'Unit', muted: true },
     { key: 'reorderLevel', label: 'Reorder Level', render: r => `${r.reorderLevel} ${r.unit}`, muted: true },
-    { key: 'totalStock', label: 'In Stock', render: r => <strong style={{ color: r.stockStatus === 'out' ? '#ef4444' : r.stockStatus === 'low' ? '#f59e0b' : '#22c55e' }}>{r.totalStock ?? 0} {r.unit}</strong> },
+    { key: 'totalStock', label: 'In Stock', render: r => <strong style={{ color: r.stockStatus === 'out' ? 'var(--red)' : r.stockStatus === 'low' ? 'var(--amber)' : 'var(--green)' }}>{r.totalStock ?? 0} {r.unit}</strong> },
     { key: 'stockStatus', label: 'Status', render: r => <Badge status={r.stockStatus === 'ok' ? 'ok' : r.stockStatus === 'low' ? 'low' : 'out'} /> },
     { key: 'actions', label: '', render: r => isManager ? (
       <div style={{ display: 'flex', gap: 6 }}>
         <button onClick={e => { e.stopPropagation(); navigate(`/products/${r._id}/edit`); }}
-          style={{ padding: '3px 10px', fontSize: 11, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-surface)', cursor: 'pointer', color: '#475569' }}>Edit</button>
+          style={{ padding: '3px 10px', fontSize: 11, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-elevated)', cursor: 'pointer', color: 'var(--text-secondary)' }}>Edit</button>
       </div>
     ) : null },
   ];
@@ -170,7 +170,7 @@ export function ProductFormPage() {
             {scanning && (
               <div style={{ marginBottom: 16, border: '2px dashed #3b82f6', borderRadius: 8, overflow: 'hidden', background: '#000' }}>
                 <div ref={scanRef} style={{ width: '100%', height: 200 }} />
-                <div style={{ padding: 8, textAlign: 'center', background: '#1e293b', color: 'var(--text-muted)', fontSize: 12 }}>
+                <div style={{ padding: 8, textAlign: 'center', background: 'var(--bg-elevated)', color: 'var(--text-muted)', fontSize: 12 }}>
                   Point camera at barcode · Press 📷 to stop
                 </div>
               </div>
@@ -217,13 +217,13 @@ export function ProductDetailPage() {
         </>}
       />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 20 }}>
-        <KPICard label="Total Stock" value={`${totalStock} ${product.unit}`} icon="📦" color="#3b82f6" />
-        <KPICard label="Reorder Level" value={`${product.reorderLevel} ${product.unit}`} icon="⚠️" color="#f59e0b" />
-        <KPICard label="Warehouses" value={product.stocks?.length || 0} icon="🏭" color="#22c55e" />
+        <KPICard label="Total Stock" value={`${totalStock} ${product.unit}`} accent="var(--accent)" />
+        <KPICard label="Reorder Level" value={`${product.reorderLevel} ${product.unit}`} accent="var(--amber)" />
+        <KPICard label="Warehouses" value={product.stocks?.length || 0} accent="var(--green)" />
       </div>
 
       <Card>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Stock by Warehouse</div>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Stock by Warehouse</div>
         <Table
           columns={[
             { key: 'warehouse', label: 'Warehouse', render: r => r.warehouse?.name },

@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler } from 'chart.js';
 import { dashboardAPI, ledgerAPI } from '../../services/api';
-import { KPICard, Badge, Card, CardHeader, AlertBanner, PageHeader, Spinner, EmptyState } from '../../components/common/UI';
+import { KPICard, Badge, Card, CardHeader, PageHeader, Spinner, EmptyState } from '../../components/common/UI';
 import { useSocket } from '../../context/SocketContext';
+import { useSettings } from '../../context/SettingsContext';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
@@ -66,6 +67,7 @@ const TYPE_ICON  = { RECEIPT: '↓', DELIVERY: '↑', TRANSFER_IN: '⇥', TRANSF
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { stockEvents } = useSocket();
+  const { settings } = useSettings();
   const [kpis, setKpis] = useState(null);
   const [lowStock, setLowStock] = useState([]);
   const [activity, setActivity] = useState([]);
@@ -290,46 +292,57 @@ export default function DashboardPage() {
     <div className="animate-fadeUp">
       <PageHeader title="Dashboard" subtitle="Real-time inventory overview" />
 
-      {lowStock.length > 0 && (
-        <AlertBanner type="warning">
-          <strong>{lowStock.length} product{lowStock.length > 1 ? 's' : ''}</strong> at or below reorder level —{' '}
-          <span style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => navigate('/products')}>review now →</span>
-        </AlertBanner>
-      )}
-
       {/* KPIs */}
       <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 12, marginBottom: 24 }}>
-        <KPICard label="Products"          value={kpis?.totalProducts}      icon="◫" accent="var(--accent)"  onClick={() => navigate('/products')} />
-        <KPICard label="Low Stock"         value={kpis?.lowStockCount}       icon="⚠" accent="var(--amber)"  delta="needs reorder" onClick={() => navigate('/products')} />
-        <KPICard label="Out of Stock"      value={kpis?.outOfStockCount}     icon="✕" accent="var(--red)"    onClick={() => navigate('/products')} />
-        <KPICard label="Pending Receipts"  value={kpis?.pendingReceipts}     icon="↓" accent="var(--green)"  onClick={() => navigate('/receipts')} />
-        <KPICard label="Pending Deliveries" value={kpis?.pendingDeliveries}  icon="↑" accent="var(--purple)" onClick={() => navigate('/deliveries')} />
-        <KPICard label="Active Transfers"  value={kpis?.scheduledTransfers}  icon="⇄" accent="var(--cyan)"   onClick={() => navigate('/transfers')} />
+        <KPICard label="Products"          value={kpis?.totalProducts}      accent="var(--accent)"  onClick={() => navigate('/products')} />
+        <KPICard label="Low Stock"         value={kpis?.lowStockCount}       accent="var(--amber)"  onClick={() => navigate('/products')} />
+        <KPICard label="Out of Stock"      value={kpis?.outOfStockCount}     accent="var(--red)"    onClick={() => navigate('/products')} />
+        <KPICard label="Pending Receipts"  value={kpis?.pendingReceipts}     accent="var(--green)"  onClick={() => navigate('/receipts')} />
+        <KPICard label="Pending Deliveries" value={kpis?.pendingDeliveries}  accent="var(--purple)" onClick={() => navigate('/deliveries')} />
+        <KPICard label="Active Transfers"  value={kpis?.scheduledTransfers}  accent="var(--cyan)"   onClick={() => navigate('/transfers')} />
       </div>
+
+
 
       {/* Row 1 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 320px', gap: 16, alignItems: 'start', marginBottom: 16 }}>
 
-        {/* Stock Movement */}
-        <Card>
-          <CardHeader
-            title="Stock Movement"
-            subtitle={{ day: 'Last 24 hours', week: 'Last 7 days', month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }), year: 'Last 12 months' }[chartPeriod]}
-            actions={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 700 }}>+{totalIn.toLocaleString()} in</span>
-                <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 700 }}>−{totalOut.toLocaleString()} out</span>
-                <select value={chartPeriod} onChange={e => setChartPeriod(e.target.value)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font)', padding: '4px 8px', cursor: 'pointer', outline: 'none' }}>
-                  <option value="day">Day</option>
-                  <option value="week">Week</option>
-                  <option value="month">Month</option>
-                  <option value="year">Year</option>
-                </select>
-              </div>
-            }
-          />
-          <div style={{ padding: '8px 16px 16px' }}><Line data={lineData} options={lineOpts} height={130} /></div>
-        </Card>
+        {/* Stock Movement + Low Stock */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Card>
+            <CardHeader
+              title="Stock Movement"
+              subtitle={{ day: 'Last 24 hours', week: 'Last 7 days', month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }), year: 'Last 12 months' }[chartPeriod]}
+              actions={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 700 }}>+{totalIn.toLocaleString()} in</span>
+                  <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 700 }}>−{totalOut.toLocaleString()} out</span>
+                  <select value={chartPeriod} onChange={e => setChartPeriod(e.target.value)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font)', padding: '4px 8px', cursor: 'pointer', outline: 'none' }}>
+                    <option value="day">Day</option>
+                    <option value="week">Week</option>
+                    <option value="month">Month</option>
+                    <option value="year">Year</option>
+                  </select>
+                </div>
+              }
+            />
+            <div style={{ padding: '8px 16px 16px' }}><Line data={lineData} options={lineOpts} height={130} /></div>
+          </Card>
+          {lowStock.length > 0 && (
+            <Card>
+              <CardHeader title="Low Stock Alert" actions={<span style={{ fontSize: 11, color: 'var(--text-accent)', cursor: 'pointer' }} onClick={() => navigate('/products')}>View all →</span>} />
+              {lowStock.slice(0, 5).map((item, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 16px', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ minWidth: 0, flex: 1, marginRight: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.product?.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>{item.product?.sku} · {item.totalQty} left</div>
+                  </div>
+                  <Badge status={item.totalQty === 0 ? 'out' : 'low'}>{item.totalQty === 0 ? 'Out' : 'Low'}</Badge>
+                </div>
+              ))}
+            </Card>
+          )}
+        </div>
 
         {/* Recent Activity */}
         <Card>
@@ -363,20 +376,6 @@ export default function DashboardPage() {
               <Doughnut data={donutData} options={donutOpts} />
             </div>
           </Card>
-          {lowStock.length > 0 && (
-            <Card>
-              <CardHeader title="Low Stock Alert" actions={<span style={{ fontSize: 11, color: 'var(--text-accent)', cursor: 'pointer' }} onClick={() => navigate('/products')}>View all →</span>} />
-              {lowStock.slice(0, 5).map((item, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 16px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ minWidth: 0, flex: 1, marginRight: 8 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.product?.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>{item.product?.sku} · {item.totalQty} left</div>
-                  </div>
-                  <Badge status={item.totalQty === 0 ? 'out' : 'low'}>{item.totalQty === 0 ? 'Out' : 'Low'}</Badge>
-                </div>
-              ))}
-            </Card>
-          )}
         </div>
 
       </div>
